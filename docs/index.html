@@ -1,0 +1,28 @@
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1.0" charset="UTF-8"></head>
+	<style>
+		.center{
+			text-align: center;
+			position: absolute;
+			left: 50%;
+			transform: translateX(-50%);
+			padding-top: 3em;
+		}
+	</style>
+	<body>
+		<div class="center">
+			<h1>Nothing to see here</h1>
+			<h1>Press ctrl+shift+i</h1>
+			<textarea id="grafo" rows="15" cols="45" style="display:block; margin:16px; border-width: medium;">
+/* Grafo 6 nós baixa conectividade */
+0, 1, 0, 0, 0, 1,  //vértice 0
+1, 0, 1, 0, 0, 0,  //vértice 1
+0, 1, 0, 1, 0, 1,  //vértice 2
+0, 0, 1, 0, 1, 1,  //vértice 3
+0, 0, 0, 1, 0, 1,  //vértice 4
+1, 0, 1, 1, 1, 0,  //vértice 5
+			</textarea>
+			<button onclick="run()" id="button">Start</button>
+		</div>
+	</body>
+	<script type="text/javascript" src="./a.js"></script>
+</html>
