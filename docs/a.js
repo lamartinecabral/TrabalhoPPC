@@ -9,7 +9,7 @@ shuffleArray = function(original){
 }
 
 
-// IMPLEMENTACAO DE ESPERA OCUPADA E NOTIFYALL
+// IMPLEMENTACAO DE ESPERA BLOQUEADA E NOTIFYALL
 var resolves = {};
 wait = function(info = {}, sleepTime = 30000){
 	return new Promise(resolve=>{
@@ -32,20 +32,56 @@ sleep = function(sleepTime = 0){
 	});
 }
 
+/*
+Um filósofo, quando fica com sede, tenta pegar as bebidas pra
+preparar um drink. Se alguma bebida não estiver disponivel, ele
+entra em espera bloqueada. E sai da espera quando algum outro
+filosofo termina de beber e libera bebidas na mesa.
+
+Quando um filosofo pega uma bebida, ele so libera ela depois que
+bebe seu drink. Portanto, pra evitar deadlock, sempre antes de
+pegar uma bebida o filosofo verifica se pode causar deadlock
+buscando ciclo num grafo de processos e recursos.
+
+Porém, existe uma situação que parece deadlock, mas não é. É quando
+existe ciclo no grafo de processos e recursos, mas algumas bebidas
+estão bloqueadas por filósofos que estão bebendo, de modo que serão
+liberadas com certeza em pouco tempo, quebrando o ciclo.
+
+Para não achar falsos deadlocks, é usado duas estruturas. Uma para
+a exclusão mutua das bebidas, e outra para detecção de deadlock.
+Funciona assim: quando um filósofo vai pegar uma bebida, primeiro
+ele tenta reservar essa bebida pra ele. Nesse momento, a bebida
+não está necessariamente na mesa (mais sobre isso adiante). Se
+conseguir reservar, ele pegará a bebida assim que ela estiver na mesa.
+
+Para reservar, primeiro a bebida precisa não estar reservada para
+outro. Segundo, é preciso verificar que não causará deadlock. Uma
+vez reservadas todas as bebidas necessárias, é uma questão de tempo
+até ter todas elas disponíveis.
+
+Se um filosofo tem uma bebida reservada e ela está na mesa, ela a pega
+e só soltará depois que beber o drink. Uma vez que o filosofo já pegou
+todas as bebidas necessárias, ele libera elas para serem reservadas
+por outro filosofo e entra no estado de BEBENDO. Somente depois
+que terminar de beber é que ele devolve as bebidas para a mesa.
+*/
+
+
 // GRAFO AUXILIAR PARA DETECCAO DE DEADLOCK
-var GV = []; // GV[v] é uma lista dos recursos que v está requisitando
-var GE = []; // GE[u] responde pra qual processo o recurso u está alocado
+var GV = []; // GV[v] é uma lista das bebidas que o filosofo v quer reservar
+var GE = []; // GE[u] responde pra qual filosofo a bebida u está reservada
 
 initGV = function(filo,bebidas){
 	for(let bebida of bebidas) GV[filo][bebida] = true;
 }
-setGE = function(bebida,filo){
+reserva = function(bebida,filo){
 	if(GE[bebida] != -1) return 0;
 	delete GV[filo][bebida];
 	GE[bebida] = filo;
 	return 1;
 }
-unsetGE = function(bebida,filo){
+libera = function(bebida,filo){
 	if(GE[bebida] != filo) return 0;
 	GE[bebida] = -1;
 	GV[filo][bebida] = true;
@@ -53,8 +89,8 @@ unsetGE = function(bebida,filo){
 }
 liberarBebidas = function(filo,bebidas){
 	let cont = 0;
-	for(let bebida of bebidas) cont += unsetGE(bebida,filo);
-	if(cont < bebidas.length) console.log("ALGO ERRADO ACONTECEU!!");
+	for(let bebida of bebidas) cont += libera(bebida,filo);
+	if(cont < bebidas.length) console.log("ALGO ERRADO ACONTECEU!");
 }
 findDeadLock = function(vertice){ // BFS pra procurar ciclo
 	let fila = new Int8Array(V); let vis = new Int8Array(V); 
@@ -73,6 +109,7 @@ findDeadLock = function(vertice){ // BFS pra procurar ciclo
 // VARIAVEIS DO AMBIENTE
 var contador = 0; // quantos instancias estao em execucao
 var iterations = 0; // vezes que cada filosofo deve beber
+var locked = []; // marcador para exclusao mutua de bebidas
 var G = []; // lista de bebidas de cada filosofo
 var V; // quantidade de filosofos
 var E; // quantidade de bebidas
@@ -82,6 +119,12 @@ var inicioExecucao;
 showStatistics = function(){
 	console.log("Tempo total: "+((new Date())-inicioExecucao)+"ms");
 	for(let i=0; i<V; i++) console.log("Filosofo "+i+": "+tempos[i][0]+"ms tranquilo; "+tempos[i][1]+"ms com sede;");
+}
+pegouTodas = function(bebidas,filo){
+	for(let b of bebidas) if(locked[b]!=filo) return false; return true;
+}
+unlock = function(bebidas,filo){
+	for(let b of bebidas){ if(locked[b]!=filo) console.log("ALGO ERRADO ACONTECEU!!"); locked[b] = -1; }
 }
 
 // THREAD QUE REPRESENTA UM FILOSOFO
@@ -101,17 +144,24 @@ filosofo = async function(filosofoId){
 		
 		// SE ALGUMA BEBIDA INDISPONIVEL, VAI PRA ESPERA BLOQUEADA
 		initGV(filosofoId, sortedBebidas);
-		let cont = 0;
 		while(true){
 			for(let bebida of sortedBebidas){
-				cont += setGE(bebida,filosofoId);
-				// se o filosofo pegando essa bebida gera deadlock, desfaz
-				if(findDeadLock(filosofoId))
-					cont -= unsetGE(bebida,filosofoId);
+				if(reserva(bebida,filosofoId)){
+					// se o filosofo pegando essa bebida gera deadlock, ele desiste de pegar
+					if(findDeadLock(filosofoId))
+						libera(bebida,filosofoId);
+					else
+						if(locked[bebida] == -1) locked[bebida] = filosofoId;
+				}
+				else if(GE[bebida] == filosofoId && locked[bebida] == -1)
+					locked[bebida] = filosofoId;
 			}
-			if(cont == quantasBebidas) break;
+			if(pegouTodas(sortedBebidas,filosofoId)) break;
 			await wait();
 		}
+		// como as bebidas estarao livres em 1seg
+		// ja pode liberar elas no grafo do deadlock
+		liberarBebidas(filosofoId, sortedBebidas);
 		
 		let tempoSede = (new Date()) - inicioSede;
 		tempos[filosofoId][1] += tempoSede;
@@ -122,8 +172,8 @@ filosofo = async function(filosofoId){
 		console.log(filosofoId+" BEBENDO");
 		await sleep(1000);
 		
-		// LIBERA AS BEBIDAS E NOTIFICA TODOS QUE ESTIVEREM AGUARDANDO
-		liberarBebidas(filosofoId, sortedBebidas);
+		// DESBLOQUEIA AS BEBIDAS E NOTIFICA TODOS QUE ESTIVEREM AGUARDANDO
+		unlock(sortedBebidas,filosofoId);
 		notifyAll();
 	}
 	console.log("filosofo "+filosofoId+" terminou.");
@@ -135,11 +185,12 @@ run = function(){
 	document.querySelector("#button").disabled = true;
 	console.clear();
 	
-	let grafo = document.querySelector("#grafo").innerHTML;
+	let grafo = document.querySelector("#grafo").value;
 	grafo = grafo.split('\n').filter(x=>x.length).filter(x=>x[0]=="0"||x[0]=="1").map(x=>x.split("//").filter(x=>x[0]=="0"||x[0]=="1").join().split(", ").join(""));
 	console.log("Matriz de adjacencias",grafo);
 	
 	V = grafo.length;
+	locked = [];
 	G = []; tempos = []; GV = [];
 	E = 0;
 	for(let i=0; i<V; i++){ G.push([]); tempos.push([0,0,0]); GV.push({}); }
@@ -147,6 +198,7 @@ run = function(){
 		for(let j=i+1; j<V; j++){
 			if(+grafo[i][j]){
 				GE[E] = -1;
+				locked[E] = -1;
 				G[i].push(E);
 				G[j].push(E++); }}}
 	iterations = V > 6 ? 3 : 6;
