@@ -65,7 +65,6 @@ async function filosofo(){
 		
 		let quantasBebidas = ~~(Math.random()*(bebidas.length-1))+2;
 		let sortedBebidas = shuffleArray(bebidas).slice(0,quantasBebidas);
-		//await initGV(sortedBebidas);
 		
 		tempoTranquilo = (new Date()) - inicioTranquilo;
 		tempos[0] += tempoTranquilo;
@@ -107,7 +106,6 @@ function run(params){
 }
 
 var onmessage = function(e){
-	//console.log(e);
 	if(e.data.key == "run"){
 		run(e.data.value);
 	} else
