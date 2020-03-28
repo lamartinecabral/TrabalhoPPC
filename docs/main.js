@@ -83,7 +83,11 @@ var inicioExecucao;
 
 showStatistics = function(){
 	console.log("Tempo total: "+((new Date())-inicioExecucao)+"ms");
-	for(let i=0; i<V; i++) console.log("Filosofo "+i+": "+tempos[i][0]+"ms tranquilo; "+tempos[i][1]+"ms com sede;");
+	document.querySelector("#log").value += "Tempo total: "+((new Date())-inicioExecucao)+"ms\n";
+	for(let i=0; i<V; i++){
+		console.log("Filosofo "+i+": "+tempos[i][0]+"ms tranquilo; "+tempos[i][1]+"ms com sede;");
+		document.querySelector("#log").value += "Filosofo "+i+": "+tempos[i][0]+"ms tranquilo; "+tempos[i][1]+"ms com sede;\n";
+	}
 }
 unlock = function(filo,bebidas){
 	for(let b of bebidas){ if(locked[b]!=filo) console.log("ALGO ERRADO ACONTECEU!!", filo); locked[b] = -1; }
@@ -109,11 +113,13 @@ listenToFilosopher = function(e){
 				else
 					if(locked[bebida] == -1) locked[bebida] = id;
 			}
+			// se bebida esta reservada pra ele mas ele ainda nao pegou, agora ele pega
 			else if(GE[bebida] == id && locked[bebida] == -1)
 				locked[bebida] = id;
 		}
 		
 		thread[id].postMessage({key: "lock", value: pegouTodas(id,sortedBebidas)});
+		if(pegouTodas(id,sortedBebidas)) document.querySelector("#log").value += "Filosofo "+id+" bebendo\n";
 		
 	} else
 	if(e.data.key == "liberarBebidas"){
@@ -141,6 +147,7 @@ listenToFilosopher = function(e){
 
 run = function(){
 	document.querySelector("#button").disabled = true;
+	document.querySelector("#log").value = "";
 	console.clear();
 	
 	let grafo = document.querySelector("#grafo").value;
@@ -171,5 +178,5 @@ run = function(){
 		thread[filo].postMessage({key: "run", value: [ filo, iterations, G[filo] ] });
 	}
 	console.log(GV,GE);
-	console.log("running version 1.1");
+	console.log("running version 1.2");
 }
